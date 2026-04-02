@@ -1,0 +1,57 @@
+workflows:
+  planetary-positions-unsigned:
+    name: PlanetaryPositions - Unsigned IPA
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      xcode: 16.2
+      cocoapods: default
+
+    scripts:
+      - name: Install dependencies (if Podfile exists)
+        script: |
+          if [ -f "Podfile" ]; then
+            pod install
+          fi
+
+      - name: Build unsigned IPA
+        script: |
+          # Build the app for a generic device (no signing)
+          xcodebuild \
+            -project PlanetaryPositions.xcodeproj \
+            -scheme PlanetaryPositions \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            PRODUCT_BUNDLE_IDENTIFIER=com.astrocalc.planetarypositions \
+            clean build \
+            OBJROOT=$(pwd)/build/obj \
+            SYMROOT=$(pwd)/build/sym
+
+      - name: Package .app into unsigned .ipa
+        script: |
+          APP_PATH=$(find ./build/sym -name "*.app" | head -1)
+          echo "Found app at: $APP_PATH"
+
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+
+          zip -r PlanetaryPositions_unsigned.ipa Payload
+
+          echo "IPA created: PlanetaryPositions_unsigned.ipa"
+
+    artifacts:
+      - PlanetaryPositions_unsigned.ipa
+      - build/sym/**/*.dSYM
+
+    publishing:
+      email:
+        recipients:
+          - your@email.com
+        notify:
+          success: true
+          failure: true
